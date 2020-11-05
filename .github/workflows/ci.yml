@@ -1,0 +1,91 @@
+name: Build, Push to GCR
+on:
+  push:
+    branches:
+      - feature
+      - develop
+      - master
+    tags:
+      - '*'
+env:
+  PROJECT_ID: ${{ secrets.RUN_PROJECT }}
+  GITHUB_SHA: ${{ github.sha }}
+  GITHUB_REF: ${{ github.ref }}
+  ORG: roava.io/platform
+  IMAGE: prometheus
+  REGISTRY_HOSTNAME: gcr.io/${{ secrets.RUN_PROJECT }}
+jobs:
+  setup-build-deploy:
+    name: Setup, Build, and Deploy
+    runs-on: ubuntu-latest
+    steps:
+      # INSERT STEP: TESTS
+      # INSERT STEP: STATIC ANALYSIS / SONARQUBE
+      # extract the version (tag pushed)
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - name: Print version
+        run: |
+          echo [github.tag]: ${{ steps.get_version.outputs.VERSION }}
+          echo [github.sha]: ${{ github.sha }}
+          echo [github.ref]: ${{ github.ref }}
+          echo [github.actor]: trigered by $GITHUB_ACTOR
+      - name: Checkout
+        uses: actions/checkout@v2
+      # Setup gcloud CLI
+      - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          version: '290.0.1'
+          service_account_key: ${{ secrets.RUN_SA_KEY }}
+          project_id: ${{ secrets.RUN_PROJECT }}
+      # Configure docker to use the gcloud command-line tool as a credential helper
+      - run: |
+          # Set up docker to authenticate
+          # via gcloud command-line tool.
+          gcloud auth configure-docker
+      # Build the Docker image
+      # images name in format - [ORG]/[IMAGE] e.g. roava.io/myimage
+      - name: Pull Images
+        run: |
+          export TAG=$(git rev-parse --short "$GITHUB_SHA")
+
+          docker pull quay.io/prometheus/alertmanager
+          docker pull squareup/ghostunnel:v1.5.2
+          docker pull jettech/kube-webhook-certgen:v1.2.1
+          docker pull quay.io/coreos/prometheus-operator:v0.38.1
+          docker pull docker.io/jimmidyson/configmap-reload:v0.3.0
+          docker pull quay.io/coreos/prometheus-config-reloader:v0.38.1
+          docker pull docker.io/bitnami/kubectl:1.16.15
+          docker pull quay.io/prometheus/prometheus:v2.18.2
+          
+      # Push the Docker image to Google Container Registry
+      # images name in format - [ORG]/[IMAGE] e.g. roava.io/myimage
+      # docker push "$REGISTRY_HOSTNAME"/"$CONTAINER":"$GITHUB_SHA"
+      - name: Publish
+        run: |
+          export TAG=$(git rev-parse --short "$GITHUB_SHA")
+
+          docker tag "quay.io/prometheus/alertmanager" "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/alertmanager:v0.21.0"
+          docker push "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/alertmanager:v0.21.0"
+
+          docker tag squareup/ghostunnel:v1.5.2 "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/ghostunnel:v1.5.2"
+          docker push "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/ghostunnel:v1.5.2"
+
+          docker tag jettech/kube-webhook-certgen:v1.2.1 "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/kube-webhook-certgen:v1.2.1"
+          docker push "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/kube-webhook-certgen:v1.2.1"
+
+          docker tag quay.io/coreos/prometheus-operator:v0.38.1 "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/prometheus-operator:v0.38.1"
+          docker push "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/prometheus-operator:v0.38.1"
+
+          docker tag docker.io/jimmidyson/configmap-reload:v0.3.0 "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/configmap-reload:v0.3.0"
+          docker push "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/configmap-reload:v0.3.0"
+
+          docker tag quay.io/coreos/prometheus-config-reloader:v0.38.1 "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/prometheus-config-reloader:v0.38.1"
+          docker push "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/prometheus-config-reloader:v0.38.1"
+
+          docker tag docker.io/bitnami/kubectl:1.16.15 "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/kubectl:1.16.15"
+          docker push "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/kubectl:1.16.15"
+
+          docker tag quay.io/prometheus/prometheus:v2.18.2 "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/prometheus:v2.18.2"
+          docker push "$REGISTRY_HOSTNAME"/"roava.io/platform/prometheus/prometheus:v2.18.2"

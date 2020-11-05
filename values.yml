@@ -1,0 +1,23 @@
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+
+    - job_name: 'vault'
+      metrics_path: "/v1/sys/metrics"
+      params:
+        format: ['prometheus']
+      scheme: https
+      tls_config:
+        insecure_skip_verify: true
+      bearer_token: "s.s6SpMR1zVIi96ecs7jSx8Sjf"
+      static_configs:
+              - targets: ['ele.roava.io:8200']
+      
+    additionalScrapeConfigsSecret: {}
+      # enabled: false
+      # name:
+      # key:
+
+    ## additionalPrometheusSecretsAnnotations allows to add annotations to the kubernetes secret. This can be useful
+    ## when deploying via spinnaker to disable versioning on the secret, strategy.spinnaker.io/versioned: 'false'
+    
